@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      UserRole @default(USER)
+  avatar    String?
+  timezone  String   @default("UTC")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  events     Event[]
+  calendars  Calendar[]
+  workingHours WorkingHours?
+
+  @@map("users")
+}
+
+model Calendar {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  color       String   @default("#3b82f6")
+  isDefault   Boolean  @default(false)
+  isVisible   Boolean  @default(true)
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events Event[]
+
+  @@map("calendars")
+}
+
+model Event {
+  id          String      @id @default(uuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  allDay      Boolean     @default(false)
+  color       String?
+  location    String?
+  status      EventStatus @default(CONFIRMED)
+  type        EventType   @default(APPOINTMENT)
+  isRecurring Boolean     @default(false)
+  userId      String
+  calendarId  String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calendar   Calendar          @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  recurrence EventRecurrence?
+  attendees  EventAttendee[]
+
+  @@map("events")
+}
+
+model EventRecurrence {
+  id        String          @id @default(uuid())
+  eventId   String          @unique
+  frequency RecurrenceType
+  interval  Int             @default(1) // Every X frequency (e.g., every 2 weeks)
+  daysOfWeek Int[]          // [0,1,2,3,4,5,6] Sunday = 0
+  endDate   DateTime?
+  count     Int?            // Number of occurrences
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_recurrences")
+}
+
+model EventAttendee {
+  id       String           @id @default(uuid())
+  eventId  String
+  email    String
+  name     String?
+  status   AttendeeStatus   @default(PENDING)
+  role     AttendeeRole     @default(ATTENDEE)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, email])
+  @@map("event_attendees")
+}
+
+model WorkingHours {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  // Working hours for each day (stored as minutes from midnight)
+  mondayStart    Int?
+  mondayEnd      Int?
+  tuesdayStart   Int?
+  tuesdayEnd     Int?
+  wednesdayStart Int?
+  wednesdayEnd   Int?
+  thursdayStart  Int?
+  thursdayEnd    Int?
+  fridayStart    Int?
+  fridayEnd      Int?
+  saturdayStart  Int?
+  saturdayEnd    Int?
+  sundayStart    Int?
+  sundayEnd      Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("working_hours")
+}
+
+// Enums
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum EventStatus {
+  CONFIRMED
+  TENTATIVE
+  CANCELLED
+}
+
+enum EventType {
+  APPOINTMENT
+  MEETING
+  BIRTHDAY
+  REMINDER
+  TASK
+  OTHER
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum AttendeeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+enum AttendeeRole {
+  ORGANIZER
+  ATTENDEE
+  OPTIONAL
+}
