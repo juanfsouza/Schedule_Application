@@ -12,5 +12,9 @@ const calendarController = new CalendarController(calendarService);
 const router = Router();
 
 router.post('/', calendarController.createCalendar);
+router.get('/', calendarController.getCalendars);
+router.get('/:id', calendarController.getCalendarById);
+router.put('/:id', calendarController.updateCalendar);
+router.delete('/:id', calendarController.deleteCalendar);
 
 export default router;

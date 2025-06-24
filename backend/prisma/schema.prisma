@@ -18,12 +18,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   events     Event[]
   calendars  Calendar[]
   workingHours WorkingHours?
 
   @@map("users")
+  Schedule Schedule[]
 }
 
 model Calendar {
@@ -37,11 +37,24 @@ model Calendar {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   events Event[]
 
   @@map("calendars")
+}
+
+model Schedule {
+  id        String   @id @default(uuid())
+  name      String
+  type      String   @default("Other")
+  color     String   @default("#3b82f6")
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("schedules")
 }
 
 model Event {
@@ -61,7 +74,6 @@ model Event {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  // Relations
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   calendar   Calendar          @relation(fields: [calendarId], references: [id], onDelete: Cascade)
   recurrence EventRecurrence?
@@ -74,14 +86,13 @@ model EventRecurrence {
   id        String          @id @default(uuid())
   eventId   String          @unique
   frequency RecurrenceType
-  interval  Int             @default(1) // Every X frequency (e.g., every 2 weeks)
-  daysOfWeek Int[]          // [0,1,2,3,4,5,6] Sunday = 0
+  interval  Int             @default(1)
+  daysOfWeek Int[]        
   endDate   DateTime?
-  count     Int?            // Number of occurrences
+  count     Int?           
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
-  // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@map("event_recurrences")
@@ -97,7 +108,6 @@ model EventAttendee {
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
-  // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, email])
@@ -108,7 +118,6 @@ model WorkingHours {
   id     String @id @default(uuid())
   userId String @unique
 
-  // Working hours for each day (stored as minutes from midnight)
   mondayStart    Int?
   mondayEnd      Int?
   tuesdayStart   Int?
@@ -127,13 +136,11 @@ model WorkingHours {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("working_hours")
 }
 
-// Enums
 enum UserRole {
   USER
   ADMIN

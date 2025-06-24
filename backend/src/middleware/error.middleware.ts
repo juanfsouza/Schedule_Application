@@ -8,15 +8,15 @@ export const errorMiddleware = (
   next: NextFunction
 ) => {
   if (error instanceof AppError) {
-    return res.status(error.statusCode).json({
+    res.status(error.statusCode).json({
       status: 'error',
       message: error.message,
     });
+  } else {
+    console.error('Unexpected error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error',
+    });
   }
-
-  console.error('Unexpected error:', error);
-  return res.status(500).json({
-    status: 'error',
-    message: 'Internal server error',
-  });
 };
