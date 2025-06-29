@@ -1,11 +1,16 @@
-import { App } from './app';
-import dotenv from 'dotenv';
+import express from 'express';
+import { routes } from './routes';
+import cors from 'cors';
 
-dotenv.config();
+const app = express();
+app.use(express.json());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://seusite.com',
+  credentials: true,
+}));
 
-const PORT = process.env.PORT || 3000;
-const app = new App();
+app.use('/api', routes);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(3001, () => {
+  console.log('Server running on port 3001');
 });

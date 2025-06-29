@@ -25,14 +25,20 @@ export class CalendarController {
     },
     ];
 
-    getCalendars = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const calendars = await this.calendarService.getCalendars(req.user!.id);
-      res.status(200).json({ status: 'success', data: calendars });
-    } catch (error) {
-      next(error);
-    }
-  };
+    getCalendars = [
+        authMiddleware,
+        async (req: Request, res: Response, next: NextFunction) => {
+          try {
+            console.log('Fetching calendars for userId:', req.user!.id);
+            const calendars = await this.calendarService.getCalendars(req.user!.id);
+            res.status(200).json({ status: 'success', data: calendars });
+          } catch (error) {
+            console.error('Error in getCalendars:', error);
+            next(error);
+          }
+        },
+      ];
+  
 
   getCalendarById = async (req: Request, res: Response, next: NextFunction) => {
     try {
