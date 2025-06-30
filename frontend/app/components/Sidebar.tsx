@@ -24,14 +24,6 @@ export default function Sidebar({ date, onDateSelect, events }: SidebarProps) {
         <CalendarComponent date={date} onSelect={onDateSelect} events={events} />
         {events.length === 0 && <p className="text-red-500 text-sm">No events loaded</p>}
       </div>
-      <div className="space-y-2">
-        <Button variant="ghost" className="w-full justify-start" onClick={() => router.push('/personal')}>
-          Personal
-        </Button>
-        <Button variant="ghost" className="w-full justify-start" onClick={() => router.push('/teams')}>
-          Teams
-        </Button>
-      </div>
       <div className="mt-6">
         <h3 className="text-sm font-medium text-gray-500 mb-2">My Schedules</h3>
         <div className="space-y-1">
