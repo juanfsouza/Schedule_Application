@@ -2,6 +2,8 @@
 
 ## 🗂️ Overview
 
+![Screenshot_10](https://github.com/user-attachments/assets/0c7b6b45-c857-40e5-9c78-5d5cfb1d4378)
+
 This project is a **full-stack scheduling system** built with a **TypeScript backend** and a **Next.js frontend**.  
 It provides robust features for:
 
