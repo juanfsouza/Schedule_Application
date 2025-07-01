@@ -91,24 +91,25 @@ It handles **authentication**, **calendar management**, **event scheduling**, **
 1. Clone the repository.
 2. Install backend dependencies:
 
-   ```bash
-   npm install
-   ```
+ ```bash
+ npm install
+ ```
    
 Install frontend dependencies:
-  ```bash
+
+```bash
 cd frontend && npm install
-  ```
+```
 
 Run the backend:
 
-  ```bash
-  npm run start
-  ```
+```bash
+npm run start
+```
 
 Run the frontend:
 
-  ```bash
-  npm run dev
-  ```
+```bash
+npm run dev
+```
 
