@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { ShinyButton } from './ui/shiny-button';
 
 const workingHoursSchema = z.object({
   mondayStart: z.number().min(0).max(1440),
@@ -53,13 +54,18 @@ export default function SetWorkingHoursDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-2 h-4 w-4" /> Set Working Hours
-        </Button>
+        <ShinyButton>
+          <div className="flex items-center">
+            <Plus className="mr-2 h-4 w-4" />
+            Set Working Hours
+          </div>
+        </ShinyButton>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Set Working Hours</DialogTitle>
+          <DialogTitle>
+              Set Working Hours
+            </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmitWorkingHours)} className="space-y-4">
           <Input type="number" placeholder="Monday Start (minutes)" {...register('mondayStart', { valueAsNumber: true })} />

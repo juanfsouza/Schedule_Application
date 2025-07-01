@@ -1,14 +1,14 @@
 'use client';
 
 import { Button } from '@/app/components/ui/button';
-import { User, ArrowLeft, ArrowRight } from 'lucide-react';
+import { User, ArrowLeft, ArrowRight, Search, Plus } from 'lucide-react';
 import AddCalendarDialog from './AddCalendarDialog';
 import AddEventDialog from './AddEventDialog';
 import AddRecurrenceDialog from './AddRecurrenceDialog';
 import SetWorkingHoursDialog from './SetWorkingHoursDialog';
 import Categories from './Categories';
 import EventDetailsDialog from './EventDetailsDialog';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 type MainContentProps = {
@@ -38,36 +38,43 @@ export default function MainContent({
   onResetEvent,
   getEventById,
 }: MainContentProps) {
-  const getCalendarDays = (d: Date | undefined) => {
-    if (!d) return [];
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const firstDayIndex = firstDay.getDay();
-
-    const days = [];
-    for (let i = firstDayIndex - 1; i >= 0; i--) {
-      const prevMonthDate = new Date(year, month, -i);
-      days.push({ date: prevMonthDate, isCurrentMonth: false });
-    }
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({ date: new Date(year, month, i), isCurrentMonth: true });
-    }
-    const totalDays = days.length;
-    for (let i = 1; i <= 42 - totalDays; i++) {
-      days.push({ date: new Date(year, month + 1, i), isCurrentMonth: false });
-    }
-
-    return days;
-  };
-
-  const days = getCalendarDays(date);
-  const currentDate = new Date('2025-06-29T23:52:00-03:00'); // Updated to current time
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(date);
+  const [currentView, setCurrentView] = useState<'day' | 'week' | 'month'>('week');
+  const currentDate = new Date(); // Usar horário atual do navegador
 
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Referencias para sincronizar scroll
+  const timeColumnRef = useRef<HTMLDivElement>(null);
+  const calendarGridRef = useRef<HTMLDivElement>(null);
+
+  // Calcular posição da linha do horário atual
+  const getCurrentTimePosition = () => {
+    const now = new Date(); // Sempre pegar horário atual do navegador
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    console.log('Horário atual:', currentHour, ':', currentMinutes); // Debug
+    
+    // Agora funciona 24h (0h às 23h)
+    if (currentHour < 0 || currentHour > 23) {
+      console.log('Horário inválido');
+      return null;
+    }
+    
+    // Calcular posição baseada no slot de tempo (cada slot tem 64px de altura - h-16)
+    const slotIndex = currentHour; // Começamos da 0h (midnight)
+    const pixelsPerMinute = 64 / 60;
+    const topPosition = (slotIndex * 64) + (currentMinutes * pixelsPerMinute);
+    
+    console.log('Posição calculada:', topPosition, 'px'); // Debug
+    
+    return topPosition;
+  };
+
+  const currentTimePosition = getCurrentTimePosition();
 
   const handleEventClick = async (eventId: string) => {
     setIsLoading(true);
@@ -85,100 +92,354 @@ export default function MainContent({
     onResetEvent();
   };
 
-  // Reset selected event when dialog is closed manually
   useEffect(() => {
     if (!selectedEvent && !isLoading) {
-      setSelectedEvent(null); // Ensure it’s cleared
+      setSelectedEvent(null);
     }
   }, [selectedEvent, isLoading]);
 
+  const handleCalendarScroll = () => {
+    if (calendarGridRef.current && timeColumnRef.current) {
+      timeColumnRef.current.scrollTop = calendarGridRef.current.scrollTop;
+    }
+  };
+
+  const timeSlots = Array.from({ length: 24 }, (_, i) => {
+    const hour = i;
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    return {
+      time24: `${hour.toString().padStart(2, '0')}:00`,
+      display: `${displayHour} ${ampm}`
+    };
+  });
+
+  const getWeekDays = (date: Date) => {
+    const week = [];
+    const startOfWeek = new Date(date);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
+      week.push(day);
+    }
+    return week;
+  };
+
+  const weekDays = getWeekDays(selectedDate || currentDate);
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  // Filter events for the selected date or week
+  const filteredEvents = events.filter((event) => {
+    if (currentView === 'week') {
+      const eventDate = new Date(event.startTime);
+      return weekDays.some(day => 
+        eventDate.toDateString() === day.toDateString()
+      ) && (searchQuery === '' || event.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    } else {
+      const eventDate = new Date(event.startTime).toDateString();
+      return eventDate === selectedDate?.toDateString() && 
+             (searchQuery === '' || event.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+  });
+
+  // Navigate to previous or next period
+  const handlePrevPeriod = () => {
+    if (currentView === 'week') {
+      setSelectedDate(prev => {
+        const newDate = new Date(prev || currentDate);
+        newDate.setDate(newDate.getDate() - 7);
+        return newDate;
+      });
+    } else {
+      setSelectedDate(prev => {
+        const newDate = new Date(prev || currentDate);
+        newDate.setDate(newDate.getDate() - 1);
+        return newDate;
+      });
+    }
+  };
+
+  const handleNextPeriod = () => {
+    if (currentView === 'week') {
+      setSelectedDate(prev => {
+        const newDate = new Date(prev || currentDate);
+        newDate.setDate(newDate.getDate() + 7);
+        return newDate;
+      });
+    } else {
+      setSelectedDate(prev => {
+        const newDate = new Date(prev || currentDate);
+        newDate.setDate(newDate.getDate() + 1);
+        return newDate;
+      });
+    }
+  };
+
+  const getDateRangeText = () => {
+    if (currentView === 'week') {
+      const firstDay = weekDays[0];
+      const lastDay = weekDays[6];
+      const monthYear = firstDay.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+      return `${firstDay.getDate()} - ${lastDay.getDate()}, ${monthYear}`;
+    }
+    return selectedDate?.toLocaleDateString('default', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
   return (
-    <div className="flex-1 p-4 overflow-auto bg-gray-50">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">
-          {date?.toLocaleString('default', { month: 'long', year: 'numeric' })}
-        </h1>
-        <div className="flex space-x-2">
-          <Button variant="outline" size="sm" onClick={() => setDate(new Date())}>
-            <span>Today</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={onPrevMonth}>
-            <ArrowLeft />
-          </Button>
-          <Button variant="outline" size="sm" onClick={onNextMonth}>
-            <ArrowRight />
-          </Button>
-          <select className="border rounded p-1 mb-2">
-            <option>Month</option>
-            <option>Week</option>
-          </select>
-          <div className="flex space-x-2 ml-5 p-2">
+    <div className="flex-1 h-screen bg-zinc-900 text-white flex flex-col">
+      {/* Top Header */}
+      <div className="flex justify-between items-center p-4 border-b border-zinc-700 flex-shrink-0">
+        <div className="flex items-center space-x-4 ml-5">
+          {/* Month/Year Display */}
+          <div className="relative  border border-zinc-600 rounded-lg overflow-hidden w-16 h-16 flex flex-col">
+            {/* Background do mês com cor mais escura */}
+            <div className="bg-zinc-700 text-center py-1 px-2">
+              <div className="text-xs text-zinc-300 uppercase font-medium">
+                {(selectedDate || currentDate).toLocaleDateString('default', { month: 'short' })}
+              </div>
+            </div>
+            {/* Número do dia */}
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-xl font-bold text-white">
+                {(selectedDate || currentDate).getDate()}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex flex-col">
+            <div className="text-xl font-semibold">
+              {(selectedDate || currentDate).toLocaleDateString('default', { month: 'long', year: 'numeric' })}
+            </div>
+            <div className="text-sm text-zinc-400">
+              {getDateRangeText()}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search events..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-zinc-800 border border-zinc-600 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          {/* Navigation */}
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setSelectedDate(new Date())}
+              className="bg-zinc-800 border-zinc-600 hover:bg-zinc-700 text-zinc-400 hover:text-white"
+            >
+              Today
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handlePrevPeriod}
+              className="bg-zinc-800 border-zinc-600 hover:bg-zinc-700 text-zinc-400 hover:text-white"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleNextPeriod}
+              className="bg-zinc-800 border-zinc-600 hover:bg-zinc-700 text-zinc-400 hover:text-white"
+            >
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* View Buttons */}
+          <div className="flex bg-zinc-800 rounded-lg p-1">
+            {['Day', 'Week', 'Month'].map((view) => (
+              <button
+                key={view}
+                onClick={() => setCurrentView(view.toLowerCase() as 'day' | 'week' | 'month')}
+                className={`px-3 py-1 text-sm rounded ${
+                  currentView === view.toLowerCase()
+                    ? 'bg-zinc-600 text-white'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                {view} view
+              </button>
+            ))}
+          </div>
+          
+          {/* User Info */}
+          <div className="flex items-center space-x-2 ml-10">
             <span className="text-sm">{user?.name || 'Loading...'}</span>
-            <User className="text-gray-500 bg-zinc-900 rounded-xl p-1" />
+            <div className="w-8 h-8 bg-zinc-700 rounded-full flex items-center justify-center">
+              <User className="w-4 h-4" />
+            </div>
           </div>
         </div>
       </div>
-      <div className="flex justify-between mb-6">
-        <div className="space-y-2 space-x-3">
-          <AddCalendarDialog
-            calendars={calendars}
-            onSubmit={function (data: { name: string; color: string; isDefault: boolean; isVisible: boolean; description?: string | undefined; }): Promise<void> {
-              throw new Error('Function not implemented.');
-            }}
-          />
-          <AddEventDialog calendars={calendars} />
-          <AddRecurrenceDialog selectedEventId={selectedEventId} />
-          <SetWorkingHoursDialog />
+
+      {/* Dialog Buttons Section */}
+      <div className="px-4 py-3 border-b border-zinc-700 flex-shrink-0">
+        <div className="flex justify-between items-center">
+          <div className="flex space-x-3">
+            <AddCalendarDialog
+              calendars={calendars}
+              onSubmit={function (data: { name: string; color: string; isDefault: boolean; isVisible: boolean; description?: string | undefined; }): Promise<void> {
+                throw new Error('Function not implemented.');
+              }}
+            />
+            <AddEventDialog calendars={calendars} />
+            <AddRecurrenceDialog selectedEventId={selectedEventId} />
+            <SetWorkingHoursDialog />
+          </div>
+        </div>
+        <div className="mt-3">
+          <Categories />
         </div>
       </div>
-      <div className="mt-2 mb-3">
-        <Categories />
-      </div>
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="grid grid-cols-7 gap-1 text-center">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="font-semibold text-gray-600 border-1 rounded-md">
-              {day}
-            </div>
-          ))}
-          {days.map((dayObj, index) => {
-            const isToday = dayObj.date.toDateString() === currentDate.toDateString();
-            const isSelected = date && dayObj.date.toDateString() === date.toDateString();
-            const dayEvents = events.filter((e) => new Date(e.startTime).toDateString() === dayObj.date.toDateString());
 
-            return (
-              <div
-                key={index}
-                onClick={() => setDate(dayObj.date)}
-                className={`p-2 rounded-lg border border-gray-200 hover:bg-zinc-200/50 focus:outline-none cursor-pointer h-42 flex flex-col items-start justify-start ${
-                  !dayObj.isCurrentMonth ? 'text-black' : ''
-                } ${isToday ? 'bg-purple-300/20 text-black' : ''} ${isSelected ? 'bg-zinc-300/30 text-black' : ''}`}
+      {/* Calendar Container with Controlled Height */}
+      <div className="flex-1 min-h-0 bg-zinc-900">
+        {/* Week Day Headers (only for week view) */}
+        {currentView === 'week' && (
+          <div className="flex border-b border-zinc-700 bg-zinc-900 flex-shrink-0 mr-3">
+            <div className="w-20 flex-shrink-0 bg-zinc-900"></div> {/* Time column spacer */}
+            {weekDays.map((day, index) => (
+              <div key={index} className="flex-1 p-4 text-center border-r border-zinc-700 last:border-r-0 bg-zinc-900">
+                <div className="text-xs text-zinc-400 uppercase">{dayNames[index]}</div>
+                <div className={`text-lg font-semibold ${
+                  day.toDateString() === new Date().toDateString() 
+                    ? 'text-blue-400' 
+                    : 'text-white'
+                }`}>
+                  {day.getDate()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Scrollable Calendar Body */}
+        <div className="flex h-full relative bg-zinc-900">
+          {/* Time Column - Sincronizada mas sem scroll visível */}
+          <div 
+            ref={timeColumnRef}
+            className="w-20 bg-zinc-900 border-r border-zinc-700 overflow-hidden absolute left-0 top-0 bottom-0 z-10 pointer-events-none"
+          >
+            <div className="bg-zinc-900">
+              {timeSlots.map((slot, index) => (
+                <div 
+                  key={index} 
+                  className="h-16 flex items-start justify-end pr-2 pt-1 text-xs text-zinc-400 border-b border-zinc-800 bg-zinc-900"
+                >
+                  {index === 0 ? '' : slot.display}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Calendar Grid com Scroll Principal */}
+          <div 
+            ref={calendarGridRef}
+            className="flex-1 overflow-y-auto bg-zinc-900 ml-20 relative"
+            onScroll={handleCalendarScroll}
+          >
+            {/* Current Time Line - Linha vermelha tracejada do horário atual - MOVIDA PARA DENTRO DA GRID */}
+            {currentTimePosition !== null && (
+              <div 
+                className="absolute left-0 right-0 z-20 pointer-events-none"
+                style={{ top: `${currentTimePosition}px` }}
               >
-                <div className="text-lg font-medium mb-1">{dayObj.date.getDate()}</div>
-                {dayEvents.length > 0 && (
-                  <div className="text-xs text-white overflow-hidden w-full">
-                    {dayEvents.map((event) => (
+                {/* Linha com bolinhas pequenas */}
+                <div 
+                  className="w-full h-0.5"
+                  style={{
+                    backgroundImage: 'radial-gradient(circle, #f86262bc 1px, transparent 1px)',
+                    backgroundSize: '12px 2px',
+                    backgroundRepeat: 'repeat-x',
+                    height: '2px',
+                  }}
+                >
+                    {/* Círculo indicador no início da linha */}
+                    <div className="absolute left-2 top-0 w-2 h-2 bg-red-500 rounded-full transform -translate-y-1/2"></div>
+                  </div>
+              </div>
+            )}
+
+            <div className={`grid ${currentView === 'week' ? 'grid-cols-7' : 'grid-cols-1'} bg-zinc-900`}>
+              {(currentView === 'week' ? weekDays : [selectedDate || currentDate]).map((day, dayIndex) => (
+                <div key={dayIndex} className="border-r border-zinc-700 last:border-r-0 bg-zinc-900">
+                  {timeSlots.map((slot, timeIndex) => {
+                    const dayEvents = filteredEvents.filter(event => {
+                      const eventDate = new Date(event.startTime);
+                      const eventHour = eventDate.getHours();
+                      const slotHour = timeIndex; // Agora começa da 0h
+                      return eventDate.toDateString() === day.toDateString() && 
+                             eventHour === slotHour;
+                    });
+
+                    return (
                       <div
-                        key={event.id}
+                        key={timeIndex}
+                        className="h-16 border-b border-zinc-800 relative hover:bg-zinc-800 cursor-pointer bg-zinc-900"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleEventClick(event.id);
+                          if (dayEvents.length > 0) {
+                            handleEventClick(dayEvents[0].id);
+                          }
                         }}
-                        className="p-1 bg-opacity-70 rounded cursor-pointer"
-                        style={{ backgroundColor: event.color || '#3b82f6' }}
                       >
-                        {event.title}
+                        {dayEvents.map((event, eventIndex) => (
+                          <div
+                            key={eventIndex}
+                            className="absolute top-1 left-1 right-1 rounded px-2 py-1 text-xs font-medium text-white cursor-pointer hover:opacity-80"
+                            style={{ 
+                              backgroundColor: event.color || '#3b82f6',
+                              zIndex: 10
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEventClick(event.id);
+                            }}
+                          >
+                            <div className="truncate">{event.title}</div>
+                            <div className="text-xs opacity-80">
+                              {new Date(event.startTime).toLocaleTimeString('default', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Event Details Dialog */}
       <EventDetailsDialog
-        event={isLoading ? null : selectedEvent} // Show null while loading
+        event={isLoading ? null : selectedEvent}
         calendars={calendars}
         onClose={() => setSelectedEvent(null)}
         onDelete={handleDeleteEvent}

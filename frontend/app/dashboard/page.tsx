@@ -27,7 +27,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) {
         toast.error('Please log in');
-        router.push('/login');
+        router.push('/auth/login');
         return;
       }
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -55,7 +55,7 @@ export default function Dashboard() {
           toast.error(error.message || 'Failed to load data');
           if (error.message.includes('Invalid token')) {
             localStorage.removeItem('token');
-            router.push('/login');
+            router.push('/auth/login');
           }
         } else {
           console.error('Unexpected error:', error);
@@ -101,9 +101,10 @@ export default function Dashboard() {
         events={events}
         selectedEventId={selectedEventId}
         setSelectedEventId={setSelectedEventId}
-        onResetEvent={() => {}}
-        getEventById={getEventById}
-      />
+        onResetEvent={() => { } }
+        getEventById={getEventById} setDate={function (date: Date | undefined): void {
+          throw new Error('Function not implemented.');
+        } }      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { ShinyButton } from './ui/shiny-button';
 
 const createCalendarSchema = z.object({
   name: z.string().min(1).max(100),
@@ -67,9 +68,12 @@ export default function AddCalendarDialog({ calendars }: AddCalendarDialogProps)
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-2 h-4 w-4" /> Add Calendar
-        </Button>
+        <ShinyButton>
+          <div className="flex items-center">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Calendar
+          </div>
+        </ShinyButton>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

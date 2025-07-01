@@ -64,7 +64,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
           status: event.status || 'CONFIRMED',
           isRecurring: event.isRecurring || false,
         }
-      : {}, // Empty default values if no event
+      : {},
   });
 
   const router = useRouter();
@@ -74,7 +74,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
   const onSubmitUpdate = async (data: UpdateEventFormData) => {
     if (!token) {
       toast.error('No authentication token found. Please log in.');
-      router.push('/login');
+      router.push('/auth');
       return;
     }
 
@@ -103,7 +103,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
       } else if (res.status === 401) {
         toast.error('Unauthorized. Please log in again.');
         localStorage.removeItem('token');
-        router.push('/login');
+        router.push('/auth');
       } else if (res.status === 409) {
         const error = await res.json();
         toast.error(error.message || 'Failed to update event: Calendar in use');
@@ -120,7 +120,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
   const handleDelete = async () => {
     if (!token) {
       toast.error('No authentication token found. Please log in.');
-      router.push('/login');
+      router.push('/auth');
       return;
     }
 
@@ -145,7 +145,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
         } else if (res.status === 401) {
           toast.error('Unauthorized. Please log in again.');
           localStorage.removeItem('token');
-          router.push('/login');
+          router.push('/auth');
         } else {
           const error = await res.json();
           toast.error(error.message || 'Failed to delete event');
@@ -184,7 +184,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
                 className="w-full border-gray-300 rounded-md focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid md:grid-cols-2 gap-3 md:w-100 sm:grid-cols-1">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
                 <Input
@@ -293,7 +293,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
             <Button type="submit" className="bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700">
               Update Event
             </Button>
-            <Button variant="destructive" onClick={handleDelete} className="ml-2">
+            <Button variant="destructive" onClick={handleDelete}>
               Delete Event
             </Button>
           </DialogFooter>

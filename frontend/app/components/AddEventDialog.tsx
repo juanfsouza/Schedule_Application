@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/app/components/ui/select';
 import { useRouter } from 'next/navigation';
+import { ShinyButton } from './ui/shiny-button';
 
 const createEventSchema = z.object({
   title: z.string().min(1).max(100),
@@ -95,7 +96,7 @@ export default function AddEventDialog({ calendars }: AddEventDialogProps) {
 
     if (!token) {
       toast.error('No authentication token found. Please log in.');
-      router.push('/login');
+      router.push('/auth');
       return;
     }
 
@@ -149,7 +150,7 @@ export default function AddEventDialog({ calendars }: AddEventDialogProps) {
       } else if (res.status === 401) {
         toast.error('Unauthorized. Please log in again.');
         localStorage.removeItem('token');
-        router.push('/login');
+        router.push('/auth');
       } else if (res.status === 409) { // Assuming 409 for calendar in use
         const error = await res.json();
         setError('calendarId', {
@@ -170,9 +171,12 @@ export default function AddEventDialog({ calendars }: AddEventDialogProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="hover:text-white bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700">
-          <Plus className="mr-2 h-4 w-4" /> Add Event
-        </Button>
+      <ShinyButton>
+        <div className="flex items-center">
+          <Plus className="mr-2 h-4 w-4" />
+          Add Event
+        </div>
+      </ShinyButton>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[455px] max-h-[70vh] bg-white rounded-xl shadow-2xl p-4 overflow-y-auto">
         <DialogHeader>
@@ -197,7 +201,7 @@ export default function AddEventDialog({ calendars }: AddEventDialogProps) {
                 className="w-full border-gray-300 rounded-md focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid md:grid-cols-2 gap-3 sm:grid-cols-1">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
                 <Input
