@@ -6,15 +6,10 @@ import { Input } from '@/app/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/app/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import useCalendarStore, { Event, Calendar } from '@/app/store/calendarStore';
 
 const updateEventSchema = z.object({
   title: z.string().min(1).max(100),
@@ -40,14 +35,15 @@ const updateEventSchema = z.object({
 type UpdateEventFormData = z.infer<typeof updateEventSchema>;
 
 type EventDetailsDialogProps = {
-  event: any;
-  calendars: any[];
+  event: Event | null;
+  calendars: Calendar[];
   onClose: () => void;
-  onDelete: () => void;
+  onUpdate: (eventId: string, eventData: Partial<Event>) => Promise<void>;
+  onDelete: () => Promise<void>;
 };
 
-export default function EventDetailsDialog({ event, calendars, onClose, onDelete }: EventDetailsDialogProps) {
-  // Only initialize form if event is valid
+export default function EventDetailsDialog({ event, calendars, onClose, onUpdate, onDelete }: EventDetailsDialogProps) {
+  const { updateEventAPI, deleteEventAPI } = useCalendarStore();
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<UpdateEventFormData>({
     resolver: zodResolver(updateEventSchema),
     defaultValues: event
@@ -68,53 +64,21 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
   });
 
   const router = useRouter();
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-
-  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
   const onSubmitUpdate = async (data: UpdateEventFormData) => {
-    const token = getToken();
-    if (!token) {
-      toast.error('No authentication token found. Please log in.');
-      router.push('/auth');
-      return;
-    }
-
     if (!event?.id) {
       toast.error('No event selected for update.');
       return;
     }
 
     try {
-      const start = new Date(data.startTime + ':00-03:00');
-      const end = new Date(data.endTime + ':00-03:00');
-      const isoStartTime = start.toISOString();
-      const isoEndTime = end.toISOString();
-
-      const res = await fetch(`${baseUrl}/events/${event.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ ...data, startTime: isoStartTime, endTime: isoEndTime }),
-      });
-      if (res.ok) {
-        toast.success('Event updated');
-        onClose();
-      } else if (res.status === 401) {
-        toast.error('Unauthorized. Please log in again.');
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-        }
-        router.push('/auth');
-      } else if (res.status === 409) {
-        const error = await res.json();
-        toast.error(error.message || 'Failed to update event: Calendar in use');
-      } else {
-        const error = await res.json();
-        toast.error(error.message || 'Failed to update event');
-      }
+      const eventData: Partial<Event> = {
+        ...data,
+        startTime: new Date(data.startTime + ':00-03:00').toISOString(),
+        endTime: new Date(data.endTime + ':00-03:00').toISOString(),
+      };
+      await onUpdate(event.id, eventData);
+      onClose();
     } catch (error) {
       console.error('Update error:', error);
       toast.error('Failed to update event');
@@ -122,13 +86,6 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
   };
 
   const handleDelete = async () => {
-    const token = getToken();
-    if (!token) {
-      toast.error('No authentication token found. Please log in.');
-      router.push('/auth');
-      return;
-    }
-
     if (!event?.id) {
       toast.error('No event selected for deletion.');
       return;
@@ -136,27 +93,8 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
 
     if (typeof window !== 'undefined' && window.confirm('Are you sure you want to delete this event?')) {
       try {
-        const res = await fetch(`${baseUrl}/events/${event.id}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (res.ok) {
-          toast.success('Event deleted');
-          onDelete();
-          onClose();
-        } else if (res.status === 401) {
-          toast.error('Unauthorized. Please log in again.');
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('token');
-          }
-          router.push('/auth');
-        } else {
-          const error = await res.json();
-          toast.error(error.message || 'Failed to delete event');
-        }
+        await onDelete();
+        onClose();
       } catch (error) {
         console.error('Delete error:', error);
         toast.error('Failed to delete event');
@@ -164,7 +102,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
     }
   };
 
-  if (!event) return null; // Prevent rendering if no event
+  if (!event) return null;
 
   return (
     <Dialog open={!!event} onOpenChange={onClose}>
@@ -214,7 +152,11 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Input {...register('allDay')} type="checkbox" className="h-4 w-4 text-zinc-600 border-gray-300 rounded focus:ring-zinc-500" />
+              <Input
+                {...register('allDay')}
+                type="checkbox"
+                className="h-4 w-4 text-zinc-600 border-gray-300 rounded focus:ring-zinc-500"
+              />
               <label className="text-sm font-medium text-gray-700">All Day</label>
             </div>
             <div>
@@ -262,7 +204,8 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
               <Select
-                onValueChange={(value: 'APPOINTMENT' | 'MEETING' | 'BIRTHDAY' | 'REMINDER' | 'TASK' | 'OTHER') => setValue('type', value)}
+                onValueChange={(value: 'APPOINTMENT' | 'MEETING' | 'BIRTHDAY' | 'REMINDER' | 'TASK' | 'OTHER') =>
+                  setValue('type', value)}
                 defaultValue={event.type || 'APPOINTMENT'}
               >
                 <SelectTrigger className="w-full border-gray-300 rounded-md focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500">
@@ -292,14 +235,16 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
               </Select>
             </div>
             <div className="flex items-center space-x-2">
-              <Input {...register('isRecurring')} type="checkbox" className="h-4 w-4 text-zinc-600 border-gray-300 rounded focus:ring-zinc-500" />
+              <Input
+                {...register('isRecurring')}
+                type="checkbox"
+                className="h-4 w-4 text-zinc-600 border-gray-300 rounded focus:ring-zinc-500"
+              />
               <label className="text-sm font-medium text-gray-700">Recurring</label>
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">
-              Update Event
-            </Button>
+            <Button type="submit">Update Event</Button>
             <Button variant="destructive" onClick={handleDelete}>
               Delete Event
             </Button>

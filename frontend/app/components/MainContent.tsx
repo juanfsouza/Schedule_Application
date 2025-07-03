@@ -10,17 +10,19 @@ import Categories from './Categories';
 import EventDetailsDialog from './EventDetailsDialog';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import useCalendarStore from '@/app/store/calendarStore';
-import { Event, Calendar } from '@/app/store/calendarStore';
+import useCalendarStore, { Event, Calendar } from '@/app/store/calendarStore';
+
+interface User {
+  id: string;
+  name: string;
+}
 
 type MainContentProps = {
   date: Date | undefined;
   setDate: (date: Date | undefined) => void;
   onPrevMonth: () => void;
   onNextMonth: () => void;
-  user: any;
-  calendars: Calendar[];
-  events: Event[];
+  user: User | null;
   selectedEventId: string | null;
   setSelectedEventId: (id: string | null) => void;
   onResetEvent: () => void;
@@ -33,21 +35,13 @@ export default function MainContent({
   onPrevMonth,
   onNextMonth,
   user,
-  calendars,
-  events,
   selectedEventId,
   setSelectedEventId,
   onResetEvent,
   getEventById,
 }: MainContentProps) {
-  // Estado do Zustand
-  const { 
-    isLoading, 
-    fetchEvents, 
-    fetchCalendars,
-    updateEventAPI,
-    deleteEventAPI 
-  } = useCalendarStore();
+
+  const { isLoading, calendars, events, fetchEvents, fetchCalendars, updateEventAPI, deleteEventAPI } = useCalendarStore();
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(date);
   const [currentView, setCurrentView] = useState<'day' | 'week' | 'month'>('week');
@@ -59,15 +53,16 @@ export default function MainContent({
   const timeColumnRef = useRef<HTMLDivElement>(null);
   const calendarGridRef = useRef<HTMLDivElement>(null);
 
+  // Sync selectedDate with date prop
+  useEffect(() => {
+    setSelectedDate(date);
+  }, [date]);
+
   // Carregar dados iniciais
   useEffect(() => {
     const loadInitialData = async () => {
-      await Promise.all([
-        fetchEvents(),
-        fetchCalendars()
-      ]);
+      await Promise.all([fetchEvents(), fetchCalendars()]);
     };
-    
     loadInitialData();
   }, [fetchEvents, fetchCalendars]);
 
@@ -76,46 +71,35 @@ export default function MainContent({
     const event = await getEventById(eventId);
     if (event) {
       setSelectedEvent(event);
+      setSelectedEventId(eventId);
     } else {
       toast.error('Erro ao carregar detalhes do evento.');
     }
   };
 
-  // Calcular posição da linha do horário atual
   const getCurrentTimePosition = () => {
     const now = new Date();
     const currentHour = now.getHours();
     const currentMinutes = now.getMinutes();
-    
+
     if (currentHour < 0 || currentHour > 23) {
       return null;
     }
-    
+
     const slotIndex = currentHour;
     const pixelsPerMinute = 64 / 60;
-    const topPosition = (slotIndex * 64) + (currentMinutes * pixelsPerMinute);
-    
+    const topPosition = slotIndex * 64 + currentMinutes * pixelsPerMinute;
     return topPosition;
   };
 
   const currentTimePosition = getCurrentTimePosition();
 
-  const handleUpdateEvent = async (eventId: string, eventData: any) => {
+  const handleUpdateEvent = async (eventId: string, eventData: Partial<Event>) => {
     try {
-      // Preparar dados para atualização
-      const start = new Date(eventData.startTime + ':00-03:00');
-      const end = new Date(eventData.endTime + ':00-03:00');
-      const isoStartTime = start.toISOString();
-      const isoEndTime = end.toISOString();
-
-      await updateEventAPI(eventId, {
-        ...eventData,
-        startTime: isoStartTime,
-        endTime: isoEndTime
-      });
-
-      // Fechar dialog após sucesso
+      await updateEventAPI(eventId, eventData);
+      toast.success('Evento atualizado com sucesso');
       setSelectedEvent(null);
+      onResetEvent();
     } catch (error) {
       console.error('Erro ao atualizar evento:', error);
       toast.error('Erro ao atualizar evento.');
@@ -129,6 +113,7 @@ export default function MainContent({
     }
     try {
       await deleteEventAPI(selectedEvent.id);
+      toast.success('Evento excluído com sucesso');
       setSelectedEvent(null);
       onResetEvent();
     } catch (error) {
@@ -149,7 +134,7 @@ export default function MainContent({
     const ampm = hour >= 12 ? 'PM' : 'AM';
     return {
       time24: `${hour.toString().padStart(2, '0')}:00`,
-      display: `${displayHour} ${ampm}`
+      display: `${displayHour} ${ampm}`,
     };
   });
 
@@ -171,32 +156,37 @@ export default function MainContent({
   const weekDays = getWeekDays(selectedDate || currentDate);
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  // Filter events for the selected date or week
-  const filteredEvents = Array.isArray(events) ? events.filter((event) => {
-    if (currentView === 'week') {
-      const eventDate = new Date(event.startTime);
-      return weekDays.some(day => 
-        eventDate.toDateString() === day.toDateString()
-      ) && (searchQuery === '' || event.title.toLowerCase().includes(searchQuery.toLowerCase()));
-    } else {
-      const eventDate = new Date(event.startTime).toDateString();
-      return eventDate === selectedDate?.toDateString() && 
-             (searchQuery === '' || event.title.toLowerCase().includes(searchQuery.toLowerCase()));
-    }
-  }) : [];
+  const filteredEvents = Array.isArray(events)
+    ? events.filter((event) => {
+        if (currentView === 'week') {
+          const eventDate = new Date(event.startTime);
+          return (
+            weekDays.some((day) => eventDate.toDateString() === day.toDateString()) &&
+            (searchQuery === '' || event.title.toLowerCase().includes(searchQuery.toLowerCase()))
+          );
+        } else {
+          const eventDate = new Date(event.startTime).toDateString();
+          return (
+            eventDate === selectedDate?.toDateString() &&
+            (searchQuery === '' || event.title.toLowerCase().includes(searchQuery.toLowerCase()))
+          );
+        }
+      })
+    : [];
 
-  // Navigate to previous or next period
   const handlePrevPeriod = () => {
     if (currentView === 'week') {
-      setSelectedDate(prev => {
+      setSelectedDate((prev) => {
         const newDate = new Date(prev || currentDate);
         newDate.setDate(newDate.getDate() - 7);
+        setDate(newDate);
         return newDate;
       });
     } else {
-      setSelectedDate(prev => {
+      setSelectedDate((prev) => {
         const newDate = new Date(prev || currentDate);
         newDate.setDate(newDate.getDate() - 1);
+        setDate(newDate);
         return newDate;
       });
     }
@@ -204,15 +194,17 @@ export default function MainContent({
 
   const handleNextPeriod = () => {
     if (currentView === 'week') {
-      setSelectedDate(prev => {
+      setSelectedDate((prev) => {
         const newDate = new Date(prev || currentDate);
         newDate.setDate(newDate.getDate() + 7);
+        setDate(newDate);
         return newDate;
       });
     } else {
-      setSelectedDate(prev => {
+      setSelectedDate((prev) => {
         const newDate = new Date(prev || currentDate);
         newDate.setDate(newDate.getDate() + 1);
+        setDate(newDate);
         return newDate;
       });
     }
@@ -225,11 +217,11 @@ export default function MainContent({
       const monthYear = firstDay.toLocaleDateString('default', { month: 'long', year: 'numeric' });
       return `${firstDay.getDate()} - ${lastDay.getDate()}, ${monthYear}`;
     }
-    return selectedDate?.toLocaleDateString('default', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return selectedDate?.toLocaleDateString('default', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
     });
   };
 
@@ -263,14 +255,12 @@ export default function MainContent({
               </div>
             </div>
           </div>
-          
+
           <div className="flex flex-col">
             <div className="text-xl font-semibold">
               {(selectedDate || currentDate).toLocaleDateString('default', { month: 'long', year: 'numeric' })}
             </div>
-            <div className="text-sm text-zinc-400">
-              {getDateRangeText()}
-            </div>
+            <div className="text-sm text-zinc-400">{getDateRangeText()}</div>
           </div>
         </div>
 
@@ -289,25 +279,29 @@ export default function MainContent({
 
           {/* Navigation */}
           <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setSelectedDate(new Date())}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const today = new Date();
+                setSelectedDate(today);
+                setDate(today);
+              }}
               className="bg-zinc-800 border-zinc-600 hover:bg-zinc-700 text-zinc-400 hover:text-white"
             >
               Today
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handlePrevPeriod}
               className="bg-zinc-800 border-zinc-600 hover:bg-zinc-700 text-zinc-400 hover:text-white"
             >
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleNextPeriod}
               className="bg-zinc-800 border-zinc-600 hover:bg-zinc-700 text-zinc-400 hover:text-white"
             >
@@ -322,16 +316,14 @@ export default function MainContent({
                 key={view}
                 onClick={() => setCurrentView(view.toLowerCase() as 'day' | 'week' | 'month')}
                 className={`px-3 py-1 text-sm rounded ${
-                  currentView === view.toLowerCase()
-                    ? 'bg-zinc-600 text-white'
-                    : 'text-zinc-400 hover:text-white'
+                  currentView === view.toLowerCase() ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-white'
                 }`}
               >
                 {view} view
               </button>
             ))}
           </div>
-          
+
           {/* User Info */}
           <div className="flex items-center space-x-2 ml-10">
             <span className="text-sm">{user?.name || 'Loading...'}</span>
@@ -348,8 +340,7 @@ export default function MainContent({
           <div className="flex space-x-3">
             <AddCalendarDialog
               calendars={calendars}
-              onSubmit={async (data) => {
-                // Implementar criação de calendário via store
+              onSubmit={async (data: any) => {
                 console.log('Criar calendário:', data);
               }}
             />
@@ -370,13 +361,16 @@ export default function MainContent({
           <div className="flex border-b border-zinc-700 bg-zinc-900 flex-shrink-0 mr-3">
             <div className="w-20 flex-shrink-0 bg-zinc-900"></div>
             {weekDays.map((day, index) => (
-              <div key={index} className="flex-1 p-4 text-center border-r border-zinc-700 last:border-r-0 bg-zinc-900">
+              <div
+                key={index}
+                className="flex-1 p-4 text-center border-r border-zinc-700 last:border-r-0 bg-zinc-900"
+              >
                 <div className="text-xs text-zinc-400 uppercase">{dayNames[index]}</div>
-                <div className={`text-lg font-semibold ${
-                  day.toDateString() === new Date().toDateString() 
-                    ? 'text-blue-400' 
-                    : 'text-white'
-                }`}>
+                <div
+                  className={`text-lg font-semibold ${
+                    day.toDateString() === new Date().toDateString() ? 'text-blue-400' : 'text-white'
+                  }`}
+                >
                   {day.getDate()}
                 </div>
               </div>
@@ -387,14 +381,14 @@ export default function MainContent({
         {/* Scrollable Calendar Body */}
         <div className="flex h-full relative bg-zinc-900">
           {/* Time Column */}
-          <div 
+          <div
             ref={timeColumnRef}
             className="w-20 bg-zinc-900 border-r border-zinc-700 overflow-hidden absolute left-0 top-0 bottom-0 z-10 pointer-events-none"
           >
             <div className="bg-zinc-900">
               {timeSlots.map((slot, index) => (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className="h-16 flex items-start justify-end pr-2 pt-1 text-xs text-zinc-400 border-b border-zinc-800 bg-zinc-900"
                 >
                   {index === 0 ? '' : slot.display}
@@ -404,18 +398,15 @@ export default function MainContent({
           </div>
 
           {/* Calendar Grid */}
-          <div 
+          <div
             ref={calendarGridRef}
             className="flex-1 overflow-y-auto bg-zinc-900 ml-20 relative"
             onScroll={handleCalendarScroll}
           >
             {/* Current Time Line */}
             {currentTimePosition !== null && (
-              <div 
-                className="absolute left-0 right-0 z-20 pointer-events-none"
-                style={{ top: `${currentTimePosition}px` }}
-              >
-                <div 
+              <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: `${currentTimePosition}px` }}>
+                <div
                   className="w-full h-0.5"
                   style={{
                     backgroundImage: 'radial-gradient(circle, #f86262bc 1px, transparent 1px)',
@@ -426,19 +417,18 @@ export default function MainContent({
                 >
                   <div className="absolute left-2 top-0 w-2 h-2 bg-red-500 rounded-full transform -translate-y-1/2"></div>
                 </div>
-            </div>
+              </div>
             )}
 
             <div className={`grid ${currentView === 'week' ? 'grid-cols-7' : 'grid-cols-1'} bg-zinc-900`}>
               {(currentView === 'week' ? weekDays : [selectedDate || currentDate]).map((day, dayIndex) => (
                 <div key={dayIndex} className="border-r border-zinc-700 last:border-r-0 bg-zinc-900">
                   {timeSlots.map((slot, timeIndex) => {
-                    const dayEvents = filteredEvents.filter(event => {
+                    const dayEvents = filteredEvents.filter((event) => {
                       const eventDate = new Date(event.startTime);
                       const eventHour = eventDate.getHours();
                       const slotHour = timeIndex;
-                      return eventDate.toDateString() === day.toDateString() && 
-                             eventHour === slotHour;
+                      return eventDate.toDateString() === day.toDateString() && eventHour === slotHour;
                     });
 
                     return (
@@ -456,10 +446,7 @@ export default function MainContent({
                           <div
                             key={eventIndex}
                             className="absolute top-1 left-1 right-1 rounded px-2 py-1 text-xs font-medium text-white cursor-pointer hover:opacity-80"
-                            style={{ 
-                              backgroundColor: event.color || '#3b82f6',
-                              zIndex: 10
-                            }}
+                            style={{ backgroundColor: event.color || '#3b82f6', zIndex: 10 }}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEventClick(event.id);
@@ -470,7 +457,7 @@ export default function MainContent({
                               {new Date(event.startTime).toLocaleTimeString('default', {
                                 hour: 'numeric',
                                 minute: '2-digit',
-                                hour12: true
+                                hour12: true,
                               })}
                             </div>
                           </div>

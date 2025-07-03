@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { ShinyButton } from './ui/shiny-button';
+import useCalendarStore, { Calendar } from '@/app/store/calendarStore';
 
 const createCalendarSchema = z.object({
   name: z.string().min(1).max(100),
@@ -21,11 +22,11 @@ const createCalendarSchema = z.object({
 type CalendarFormData = z.infer<typeof createCalendarSchema>;
 
 type AddCalendarDialogProps = {
-  calendars: any[];
-  onSubmit: (data: CalendarFormData) => Promise<void>;
+  calendars: Calendar[];
 };
 
 export default function AddCalendarDialog({ calendars }: AddCalendarDialogProps) {
+  const { createCalendarAPI } = useCalendarStore();
   const {
     register,
     handleSubmit,
@@ -43,22 +44,9 @@ export default function AddCalendarDialog({ calendars }: AddCalendarDialogProps)
   });
 
   const onSubmitCalendar = async (data: CalendarFormData) => {
-    const token = localStorage.getItem('token');
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     try {
-      const res = await fetch(`${baseUrl}/calendars`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        const result = await res.json();
-        toast.success('Calendar created');
-        reset();
-      } else {
-        const error = await res.json();
-        toast.error(error.message || 'Failed to create calendar');
-      }
+      await createCalendarAPI(data);
+      reset();
     } catch (error) {
       console.error('Calendar creation error:', error);
       toast.error('Failed to create calendar');
@@ -80,11 +68,50 @@ export default function AddCalendarDialog({ calendars }: AddCalendarDialogProps)
           <DialogTitle>Add New Calendar</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmitCalendar)} className="space-y-4">
-          <Input {...register('name')} placeholder="Calendar Name" />
-          {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
-          <Input {...register('description')} placeholder="Description" />
-          <Input {...register('color')} type="color" />
-          <Button type="submit">Create</Button>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Calendar Name</label>
+            <Input
+              {...register('name')}
+              placeholder="Calendar Name"
+              className="w-full border-gray-300 rounded-md focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500"
+            />
+            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <Input
+              {...register('description')}
+              placeholder="Description"
+              className="w-full border-gray-300 rounded-md focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+            <Input
+              {...register('color')}
+              type="color"
+              className="w-full border-gray-300 rounded-md focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Input
+              {...register('isDefault')}
+              type="checkbox"
+              className="h-4 w-4 text-zinc-600 border-gray-300 rounded focus:ring-zinc-500"
+            />
+            <label className="text-sm font-medium text-gray-700">Default Calendar</label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Input
+              {...register('isVisible')}
+              type="checkbox"
+              className="h-4 w-4 text-zinc-600 border-gray-300 rounded focus:ring-zinc-500"
+            />
+            <label className="text-sm font-medium text-gray-700">Visible</label>
+          </div>
+          <Button type="submit" className="w-full">
+            Create
+          </Button>
         </form>
       </DialogContent>
     </Dialog>

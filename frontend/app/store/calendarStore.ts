@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 
+export type Recurrence = {
+  frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+  interval: number;
+  daysOfWeek?: number[];
+  endDate?: string;
+  count?: number;
+};
+
 export type Event = {
   id: string;
   title: string;
@@ -14,6 +22,7 @@ export type Event = {
   type?: 'APPOINTMENT' | 'MEETING' | 'BIRTHDAY' | 'REMINDER' | 'TASK' | 'OTHER';
   status?: 'CONFIRMED' | 'TENTATIVE' | 'CANCELLED';
   isRecurring?: boolean;
+  recurrence?: Recurrence;
 };
 
 export type Calendar = {
@@ -21,6 +30,7 @@ export type Calendar = {
   name: string;
   color: string;
   isDefault: boolean;
+  isVisible?: boolean;
 };
 
 type CalendarStore = {
@@ -29,12 +39,13 @@ type CalendarStore = {
   isLoading: boolean;
   fetchEvents: () => Promise<void>;
   fetchCalendars: () => Promise<void>;
-  createEventAPI: (eventData: Omit<Event, 'id'>) => Promise<void>;
+  createEventAPI: (eventData: Omit<Event, 'id'>) => Promise<string | null>;
+  createCalendarAPI: (calendarData: Omit<Calendar, 'id'>) => Promise<void>;
   updateEventAPI: (eventId: string, eventData: Partial<Event>) => Promise<void>;
   deleteEventAPI: (eventId: string) => Promise<void>;
 };
 
-const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+const getToken = () => (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
 
 const useCalendarStore = create<CalendarStore>((set) => ({
   events: [],
@@ -61,11 +72,9 @@ const useCalendarStore = create<CalendarStore>((set) => ({
         const data = await response.json();
         set({ events: data.data });
       } else if (response.status === 401) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-        }
         toast.error('Sessão expirada. Faça login novamente.');
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
           window.location.href = '/auth';
         }
       } else {
@@ -99,11 +108,9 @@ const useCalendarStore = create<CalendarStore>((set) => ({
         const data = await response.json();
         set({ calendars: data.data });
       } else if (response.status === 401) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-        }
         toast.error('Sessão expirada. Faça login novamente.');
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
           window.location.href = '/auth';
         }
       } else {
@@ -121,7 +128,7 @@ const useCalendarStore = create<CalendarStore>((set) => ({
     const token = getToken();
     if (!token) {
       toast.error('Token de autenticação não encontrado');
-      return;
+      return null;
     }
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     try {
@@ -135,24 +142,66 @@ const useCalendarStore = create<CalendarStore>((set) => ({
       });
       if (response.ok) {
         const data = await response.json();
+        const newEvent = { ...eventData, id: data.data.id };
         set((state) => ({
-          events: [...state.events, { ...eventData, id: data.data.id }],
+          events: [...state.events, newEvent],
         }));
         toast.success('Evento criado com sucesso');
+        return data.data.id;
       } else if (response.status === 401) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-        }
         toast.error('Sessão expirada. Faça login novamente.');
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
           window.location.href = '/auth';
         }
+        return null;
       } else {
-        throw new Error('Failed to create event');
+        const error = await response.json();
+        toast.error(error.message || 'Failed to create event');
+        return null;
       }
     } catch (error) {
       console.error('Create event error:', error);
       toast.error('Erro ao criar evento');
+      return null;
+    }
+  },
+
+  createCalendarAPI: async (calendarData: Omit<Calendar, 'id'>) => {
+    const token = getToken();
+    if (!token) {
+      toast.error('Token de autenticação não encontrado');
+      return;
+    }
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    try {
+      const response = await fetch(`${baseUrl}/calendars`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(calendarData),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        set((state) => ({
+          calendars: [...state.calendars, { ...calendarData, id: data.data.id }],
+        }));
+        toast.success('Calendário criado com sucesso');
+      } else if (response.status === 401) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          window.location.href = '/auth';
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.message || 'Failed to create calendar');
+      }
+    } catch (error) {
+      console.error('Create calendar error:', error);
+      toast.error('Erro ao criar calendário');
     }
   },
 
@@ -174,21 +223,18 @@ const useCalendarStore = create<CalendarStore>((set) => ({
       });
       if (response.ok) {
         set((state) => ({
-          events: state.events.map((event) =>
-            event.id === eventId ? { ...event, ...eventData } : event
-          ),
+          events: state.events.map((event) => (event.id === eventId ? { ...event, ...eventData } : event)),
         }));
         toast.success('Evento atualizado com sucesso');
       } else if (response.status === 401) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-        }
         toast.error('Sessão expirada. Faça login novamente.');
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
           window.location.href = '/auth';
         }
       } else {
-        throw new Error('Failed to update event');
+        const error = await response.json();
+        toast.error(error.message || 'Failed to update event');
       }
     } catch (error) {
       console.error('Update event error:', error);
@@ -216,15 +262,14 @@ const useCalendarStore = create<CalendarStore>((set) => ({
         }));
         toast.success('Evento excluído com sucesso');
       } else if (response.status === 401) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-        }
         toast.error('Sessão expirada. Faça login novamente.');
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
           window.location.href = '/auth';
         }
       } else {
-        throw new Error('Failed to delete event');
+        const error = await response.json();
+        toast.error(error.message || 'Failed to delete event');
       }
     } catch (error) {
       console.error('Delete event error:', error);
