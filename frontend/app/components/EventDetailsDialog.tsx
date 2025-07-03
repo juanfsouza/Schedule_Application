@@ -68,10 +68,12 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
   });
 
   const router = useRouter();
-  const token = localStorage.getItem('token');
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
   const onSubmitUpdate = async (data: UpdateEventFormData) => {
+    const token = getToken();
     if (!token) {
       toast.error('No authentication token found. Please log in.');
       router.push('/auth');
@@ -102,7 +104,9 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
         onClose();
       } else if (res.status === 401) {
         toast.error('Unauthorized. Please log in again.');
-        localStorage.removeItem('token');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+        }
         router.push('/auth');
       } else if (res.status === 409) {
         const error = await res.json();
@@ -118,6 +122,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
   };
 
   const handleDelete = async () => {
+    const token = getToken();
     if (!token) {
       toast.error('No authentication token found. Please log in.');
       router.push('/auth');
@@ -129,7 +134,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
       return;
     }
 
-    if (window.confirm('Are you sure you want to delete this event?')) {
+    if (typeof window !== 'undefined' && window.confirm('Are you sure you want to delete this event?')) {
       try {
         const res = await fetch(`${baseUrl}/events/${event.id}`, {
           method: 'DELETE',
@@ -144,7 +149,9 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
           onClose();
         } else if (res.status === 401) {
           toast.error('Unauthorized. Please log in again.');
-          localStorage.removeItem('token');
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+          }
           router.push('/auth');
         } else {
           const error = await res.json();
@@ -290,7 +297,7 @@ export default function EventDetailsDialog({ event, calendars, onClose, onDelete
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" className="bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700">
+            <Button type="submit">
               Update Event
             </Button>
             <Button variant="destructive" onClick={handleDelete}>

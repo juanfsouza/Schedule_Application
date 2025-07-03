@@ -89,11 +89,12 @@ export default function AddEventDialog({ calendars }: AddEventDialogProps) {
   });
 
   const router = useRouter();
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
   const onSubmitEvent = async (data: EventFormData) => {
-    const token = localStorage.getItem('token');
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-
+    const token = getToken();
     if (!token) {
       toast.error('No authentication token found. Please log in.');
       router.push('/auth');
@@ -149,9 +150,11 @@ export default function AddEventDialog({ calendars }: AddEventDialogProps) {
         reset();
       } else if (res.status === 401) {
         toast.error('Unauthorized. Please log in again.');
-        localStorage.removeItem('token');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+        }
         router.push('/auth');
-      } else if (res.status === 409) { // Assuming 409 for calendar in use
+      } else if (res.status === 409) {
         const error = await res.json();
         setError('calendarId', {
           type: 'manual',
@@ -171,12 +174,12 @@ export default function AddEventDialog({ calendars }: AddEventDialogProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-      <ShinyButton>
-        <div className="flex items-center">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Event
-        </div>
-      </ShinyButton>
+        <ShinyButton>
+          <div className="flex items-center">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Event
+          </div>
+        </ShinyButton>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[455px] max-h-[70vh] bg-white rounded-xl shadow-2xl p-4 overflow-y-auto">
         <DialogHeader>
@@ -373,7 +376,7 @@ export default function AddEventDialog({ calendars }: AddEventDialogProps) {
           </div>
           <Button
             type="submit"
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 py-2 rounded-md transition duration-300"
+            className="w-full"
           >
             Create Event
           </Button>

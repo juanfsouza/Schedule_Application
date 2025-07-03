@@ -30,11 +30,11 @@ export default function CalendarComponent({ date, onSelect, events }: CalendarCo
       }}
       modifiersStyles={{
         events: {
-          backgroundColor: '#a93fff2b',
+          backgroundColor: '#ffffff',
           color: '#000000',
           fontSize: '0.75rem',
           padding: '0px',
-          margin: '1px',
+          margin: '2px',
           borderRadius: '5px',
         },
       }}

@@ -22,9 +22,11 @@ export default function Dashboard() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const router = useRouter();
 
+  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       if (!token) {
         toast.error('Please log in');
         router.push('/auth/login');
@@ -54,7 +56,9 @@ export default function Dashboard() {
           console.error('Fetch error:', error);
           toast.error(error.message || 'Failed to load data');
           if (error.message.includes('Invalid token')) {
-            localStorage.removeItem('token');
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('token');
+            }
             router.push('/auth/login');
           }
         } else {
@@ -75,7 +79,12 @@ export default function Dashboard() {
   };
 
   const getEventById = async (id: string) => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
+    if (!token) {
+      toast.error('No authentication token found. Please log in.');
+      router.push('/auth/login');
+      return null;
+    }
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     try {
       const res = await fetch(`${baseUrl}/events/${id}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -94,6 +103,7 @@ export default function Dashboard() {
       <Sidebar date={date} onDateSelect={setDate} events={events} />
       <MainContent
         date={date}
+        setDate={setDate}
         onPrevMonth={handlePrevMonth}
         onNextMonth={handleNextMonth}
         user={user}
@@ -101,10 +111,9 @@ export default function Dashboard() {
         events={events}
         selectedEventId={selectedEventId}
         setSelectedEventId={setSelectedEventId}
-        onResetEvent={() => { } }
-        getEventById={getEventById} setDate={function (date: Date | undefined): void {
-          throw new Error('Function not implemented.');
-        } }      />
+        onResetEvent={() => setSelectedEventId(null)}
+        getEventById={getEventById}
+      />
     </div>
   );
 }

@@ -29,7 +29,7 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "bg-zinc-100/50 rounded-2xl group/calendar p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
+        " rounded-2xl group/calendar p-2 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className
@@ -66,7 +66,7 @@ function Calendar({
           defaultClassNames.month_caption
         ),
         dropdowns: cn(
-          "w-full flex items-center text-sm font-medium justify-center h-(--cell-size) gap-1.5",
+          "w-full flex items-center text-zinc-500 text-sm font-medium justify-center h-(--cell-size) gap-1.5",
           defaultClassNames.dropdowns
         ),
         dropdown_root: cn(
@@ -87,7 +87,7 @@ function Calendar({
           "text-muted-foreground rounded-md flex-1 font-normal text-[0.8rem] select-none",
           defaultClassNames.weekday
         ),
-        week: cn("flex w-full mt-2", defaultClassNames.week),
+        week: cn("flex w-full", defaultClassNames.week),
         week_number_header: cn(
           "select-none w-(--cell-size)",
           defaultClassNames.week_number_header

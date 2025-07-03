@@ -10,6 +10,8 @@ import Categories from './Categories';
 import EventDetailsDialog from './EventDetailsDialog';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import useCalendarStore from '@/app/store/calendarStore';
+import { Event, Calendar } from '@/app/store/calendarStore';
 
 type MainContentProps = {
   date: Date | undefined;
@@ -17,12 +19,12 @@ type MainContentProps = {
   onPrevMonth: () => void;
   onNextMonth: () => void;
   user: any;
-  calendars: any[];
-  events: any[];
+  calendars: Calendar[];
+  events: Event[];
   selectedEventId: string | null;
   setSelectedEventId: (id: string | null) => void;
   onResetEvent: () => void;
-  getEventById: (id: string) => Promise<any | null>;
+  getEventById: (id: string) => Promise<Event | null>;
 };
 
 export default function MainContent({
@@ -38,65 +40,102 @@ export default function MainContent({
   onResetEvent,
   getEventById,
 }: MainContentProps) {
+  // Estado do Zustand
+  const { 
+    isLoading, 
+    fetchEvents, 
+    fetchCalendars,
+    updateEventAPI,
+    deleteEventAPI 
+  } = useCalendarStore();
+
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(date);
   const [currentView, setCurrentView] = useState<'day' | 'week' | 'month'>('week');
-  const currentDate = new Date(); // Usar horário atual do navegador
-
-  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const currentDate = new Date();
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Referencias para sincronizar scroll
   const timeColumnRef = useRef<HTMLDivElement>(null);
   const calendarGridRef = useRef<HTMLDivElement>(null);
 
+  // Carregar dados iniciais
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await Promise.all([
+        fetchEvents(),
+        fetchCalendars()
+      ]);
+    };
+    
+    loadInitialData();
+  }, [fetchEvents, fetchCalendars]);
+
+  // Função para buscar evento por ID
+  const handleEventClick = async (eventId: string) => {
+    const event = await getEventById(eventId);
+    if (event) {
+      setSelectedEvent(event);
+    } else {
+      toast.error('Erro ao carregar detalhes do evento.');
+    }
+  };
+
   // Calcular posição da linha do horário atual
   const getCurrentTimePosition = () => {
-    const now = new Date(); // Sempre pegar horário atual do navegador
+    const now = new Date();
     const currentHour = now.getHours();
     const currentMinutes = now.getMinutes();
     
-    console.log('Horário atual:', currentHour, ':', currentMinutes); // Debug
-    
-    // Agora funciona 24h (0h às 23h)
     if (currentHour < 0 || currentHour > 23) {
-      console.log('Horário inválido');
       return null;
     }
     
-    // Calcular posição baseada no slot de tempo (cada slot tem 64px de altura - h-16)
-    const slotIndex = currentHour; // Começamos da 0h (midnight)
+    const slotIndex = currentHour;
     const pixelsPerMinute = 64 / 60;
     const topPosition = (slotIndex * 64) + (currentMinutes * pixelsPerMinute);
-    
-    console.log('Posição calculada:', topPosition, 'px'); // Debug
     
     return topPosition;
   };
 
   const currentTimePosition = getCurrentTimePosition();
 
-  const handleEventClick = async (eventId: string) => {
-    setIsLoading(true);
-    const event = await getEventById(eventId);
-    if (event) {
-      setSelectedEvent(event);
-    } else {
-      toast.error('Failed to load event details.');
-    }
-    setIsLoading(false);
-  };
+  const handleUpdateEvent = async (eventId: string, eventData: any) => {
+    try {
+      // Preparar dados para atualização
+      const start = new Date(eventData.startTime + ':00-03:00');
+      const end = new Date(eventData.endTime + ':00-03:00');
+      const isoStartTime = start.toISOString();
+      const isoEndTime = end.toISOString();
 
-  const handleDeleteEvent = () => {
-    setSelectedEvent(null);
-    onResetEvent();
-  };
+      await updateEventAPI(eventId, {
+        ...eventData,
+        startTime: isoStartTime,
+        endTime: isoEndTime
+      });
 
-  useEffect(() => {
-    if (!selectedEvent && !isLoading) {
+      // Fechar dialog após sucesso
       setSelectedEvent(null);
+    } catch (error) {
+      console.error('Erro ao atualizar evento:', error);
+      toast.error('Erro ao atualizar evento.');
     }
-  }, [selectedEvent, isLoading]);
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent?.id) {
+      toast.error('Nenhum evento selecionado para excluir.');
+      return;
+    }
+    try {
+      await deleteEventAPI(selectedEvent.id);
+      setSelectedEvent(null);
+      onResetEvent();
+    } catch (error) {
+      console.error('Erro ao excluir evento:', error);
+      toast.error('Erro ao excluir evento.');
+    }
+  };
 
   const handleCalendarScroll = () => {
     if (calendarGridRef.current && timeColumnRef.current) {
@@ -133,7 +172,7 @@ export default function MainContent({
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   // Filter events for the selected date or week
-  const filteredEvents = events.filter((event) => {
+  const filteredEvents = Array.isArray(events) ? events.filter((event) => {
     if (currentView === 'week') {
       const eventDate = new Date(event.startTime);
       return weekDays.some(day => 
@@ -144,7 +183,7 @@ export default function MainContent({
       return eventDate === selectedDate?.toDateString() && 
              (searchQuery === '' || event.title.toLowerCase().includes(searchQuery.toLowerCase()));
     }
-  });
+  }) : [];
 
   // Navigate to previous or next period
   const handlePrevPeriod = () => {
@@ -194,20 +233,30 @@ export default function MainContent({
     });
   };
 
+  // Loading state
+  if (isLoading && events.length === 0) {
+    return (
+      <div className="flex-1 h-screen bg-zinc-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Carregando calendário...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 h-screen bg-zinc-900 text-white flex flex-col">
       {/* Top Header */}
       <div className="flex justify-between items-center p-4 border-b border-zinc-700 flex-shrink-0">
         <div className="flex items-center space-x-4 ml-5">
           {/* Month/Year Display */}
-          <div className="relative  border border-zinc-600 rounded-lg overflow-hidden w-16 h-16 flex flex-col">
-            {/* Background do mês com cor mais escura */}
+          <div className="relative border border-zinc-600 rounded-lg overflow-hidden w-16 h-16 flex flex-col">
             <div className="bg-zinc-700 text-center py-1 px-2">
               <div className="text-xs text-zinc-300 uppercase font-medium">
                 {(selectedDate || currentDate).toLocaleDateString('default', { month: 'short' })}
               </div>
             </div>
-            {/* Número do dia */}
             <div className="flex-1 flex items-center justify-center">
               <div className="text-xl font-bold text-white">
                 {(selectedDate || currentDate).getDate()}
@@ -299,8 +348,9 @@ export default function MainContent({
           <div className="flex space-x-3">
             <AddCalendarDialog
               calendars={calendars}
-              onSubmit={function (data: { name: string; color: string; isDefault: boolean; isVisible: boolean; description?: string | undefined; }): Promise<void> {
-                throw new Error('Function not implemented.');
+              onSubmit={async (data) => {
+                // Implementar criação de calendário via store
+                console.log('Criar calendário:', data);
               }}
             />
             <AddEventDialog calendars={calendars} />
@@ -313,12 +363,12 @@ export default function MainContent({
         </div>
       </div>
 
-      {/* Calendar Container with Controlled Height */}
+      {/* Calendar Container */}
       <div className="flex-1 min-h-0 bg-zinc-900">
-        {/* Week Day Headers (only for week view) */}
+        {/* Week Day Headers */}
         {currentView === 'week' && (
           <div className="flex border-b border-zinc-700 bg-zinc-900 flex-shrink-0 mr-3">
-            <div className="w-20 flex-shrink-0 bg-zinc-900"></div> {/* Time column spacer */}
+            <div className="w-20 flex-shrink-0 bg-zinc-900"></div>
             {weekDays.map((day, index) => (
               <div key={index} className="flex-1 p-4 text-center border-r border-zinc-700 last:border-r-0 bg-zinc-900">
                 <div className="text-xs text-zinc-400 uppercase">{dayNames[index]}</div>
@@ -336,7 +386,7 @@ export default function MainContent({
 
         {/* Scrollable Calendar Body */}
         <div className="flex h-full relative bg-zinc-900">
-          {/* Time Column - Sincronizada mas sem scroll visível */}
+          {/* Time Column */}
           <div 
             ref={timeColumnRef}
             className="w-20 bg-zinc-900 border-r border-zinc-700 overflow-hidden absolute left-0 top-0 bottom-0 z-10 pointer-events-none"
@@ -353,19 +403,18 @@ export default function MainContent({
             </div>
           </div>
 
-          {/* Calendar Grid com Scroll Principal */}
+          {/* Calendar Grid */}
           <div 
             ref={calendarGridRef}
             className="flex-1 overflow-y-auto bg-zinc-900 ml-20 relative"
             onScroll={handleCalendarScroll}
           >
-            {/* Current Time Line - Linha vermelha tracejada do horário atual - MOVIDA PARA DENTRO DA GRID */}
+            {/* Current Time Line */}
             {currentTimePosition !== null && (
               <div 
                 className="absolute left-0 right-0 z-20 pointer-events-none"
                 style={{ top: `${currentTimePosition}px` }}
               >
-                {/* Linha com bolinhas pequenas */}
                 <div 
                   className="w-full h-0.5"
                   style={{
@@ -375,10 +424,9 @@ export default function MainContent({
                     height: '2px',
                   }}
                 >
-                    {/* Círculo indicador no início da linha */}
-                    <div className="absolute left-2 top-0 w-2 h-2 bg-red-500 rounded-full transform -translate-y-1/2"></div>
-                  </div>
-              </div>
+                  <div className="absolute left-2 top-0 w-2 h-2 bg-red-500 rounded-full transform -translate-y-1/2"></div>
+                </div>
+            </div>
             )}
 
             <div className={`grid ${currentView === 'week' ? 'grid-cols-7' : 'grid-cols-1'} bg-zinc-900`}>
@@ -388,7 +436,7 @@ export default function MainContent({
                     const dayEvents = filteredEvents.filter(event => {
                       const eventDate = new Date(event.startTime);
                       const eventHour = eventDate.getHours();
-                      const slotHour = timeIndex; // Agora começa da 0h
+                      const slotHour = timeIndex;
                       return eventDate.toDateString() === day.toDateString() && 
                              eventHour === slotHour;
                     });
@@ -439,9 +487,10 @@ export default function MainContent({
 
       {/* Event Details Dialog */}
       <EventDetailsDialog
-        event={isLoading ? null : selectedEvent}
+        event={selectedEvent}
         calendars={calendars}
         onClose={() => setSelectedEvent(null)}
+        onUpdate={handleUpdateEvent}
         onDelete={handleDeleteEvent}
       />
     </div>
