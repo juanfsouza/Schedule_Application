@@ -1,129 +1,207 @@
-# 📅 Scheduling System Documentation
+# 📅 Sistema de Agendamento - ScheduleApp
 
-## 🗂️ Overview
+## 🗂️ Visão Geral
 
-![Screenshot_10](https://github.com/user-attachments/assets/0c7b6b45-c857-40e5-9c78-5d5cfb1d4378)
+Sistema completo de agendamento desenvolvido com **TypeScript** no backend e **Next.js 15** no frontend. Permite gerenciar calendários, eventos, participantes e horários de trabalho.
 
-This project is a **full-stack scheduling system** built with a **TypeScript backend** and a **Next.js frontend**.  
-It provides robust features for:
+### ✨ Funcionalidades Principais
 
-✅ **User Authentication**  
-📆 **Calendar Management**  
-🗓️ **Event Scheduling**  
-👥 **Attendee Tracking**  
-⏰ **Working Hours Configuration**
-
----
-
-## 📁 Project Structure
-
-### 🛠️ Backend
-
-- **`dtos/`**: 📄 Data Transfer Objects to define and validate data structures.  
-  _Examples:_ `auth.dto.ts`, `calendar.dto.ts`, `event.attendee.dto.ts`
-
-- **`middleware/`**: 🧩 Middlewares for handling authentication, validation, and error responses.  
-  _Examples:_ `auth.middleware.ts`, `validator.middleware.ts`, `error.middleware.ts`
-
-- **`repositories/`**: 🗃️ Database access layer for interacting with Prisma and handling CRUD operations for all entities.  
-  _Examples:_ `calendar.repository.ts`, `event.repository.ts`
-
-- **`routes/`**: 🚏 Defines all API endpoints for authentication, calendars, events, and schedules.  
-  _Examples:_ `auth.routes.ts`, `calendar.routes.ts`
-
-- **`services/`**: 🔧 Business logic for handling core functionalities like user management, event workflows, and validations.  
-  _Examples:_ `auth.service.ts`, `calendar.service.ts`
-
-- **`controllers/`**: 🎛️ Controllers that process HTTP requests and return responses to the client.  
-  _Examples:_ `AuthController`, `CalendarController`, `EventAttendeeController`
-
-- **`utils/`**: 🧰 Utility helpers for tasks like JWT handling, time calculations, and error formatting.  
-  _Examples:_ `error.util.ts`, `jwt.util.ts`, `time.util.ts`
-
-- **`app.ts`**: 🚀 Main application setup and Express app configuration.
-
-- **`server.ts`**: 🖥️ Starts and configures the server instance.
+- 🔐 **Autenticação JWT** - Login e registro de usuários
+- 📅 **Gestão de Calendários** - Criar, editar e gerenciar múltiplos calendários
+- 🗓️ **Eventos** - Agendamento com suporte a eventos recorrentes
+- 👥 **Participantes** - Adicionar e gerenciar convidados
+- ⏰ **Horários de Trabalho** - Configurar disponibilidade semanal
+- 📱 **Interface Responsiva** - Design moderno com Tailwind CSS
 
 ---
 
-### 📦 Backend Dependencies
+## 🏗️ Arquitetura
 
-Main dependencies used in the backend include:
+### Backend (Node.js + Express + TypeScript)
 
-- `@prisma/client: ^6.9.0` – ORM for database operations
-- `bcryptjs: ^3.0.2` – For password hashing and verification
-- `express: ^5.1.0` – Web framework for building APIs
-- `jsonwebtoken: ^9.0.2` – For JWT-based authentication
-- `zod: ^3.25.63` – Schema validation for inputs
-- _And others — see `package.json` for the complete list._
-
----
-
-### 🖥️ Frontend
-
-- **`app/`**: 🏠 Contains main pages and routing files.  
-  _Examples:_ `login.tsx` (login page), `page.tsx` (root pages)
-
-- **`components/`**: ⚙️ Reusable React components for dialogs, forms, and cards.  
-  _Examples:_ `AddCalendarDialog.tsx`, `EventCard.tsx`
-
-- **`utils/`**: 🧩 Helper functions for date manipulation, formatting, and API calls.
-
-- **`dashboard/`**: 📊 Dashboard layout and views to display and manage user schedules and calendars.  
-  _Examples:_ `page.tsx`, `layout.tsx`
-
----
-
-### 📦 Frontend Dependencies
-
-Key frontend dependencies:
-
-- `next: ^15.3.4` – React framework for SSR and routing
-- `react: ^19.0.0` – Core library for building user interfaces
-- `@radix-ui/react-dialog: ^1.1.14` – Accessible UI primitives for modals and dialogs
-- `date-fns: ^4.1.0` – Utility library for date operations
-- `tailwind-merge: ^3.3.1` – Utility for merging Tailwind CSS classes
-- _See `package.json` for full details._
-
----
-
-## ✨ Features
-
-- 🔐 **Authentication:** Secure user registration and login with JWT.
-- 📅 **Calendar Management:** Create, view, update, and delete calendars.
-- 🗓️ **Event Scheduling:** Manage single or recurring events.
-- 👥 **Attendee Tracking:** Add, remove, and update event attendees.
-- ⏰ **Working Hours:** Define and control user-specific working schedules.
-- 📌 **Scheduling:** Generate and fetch schedules based on user availability.
-
----
-
-## ⚙️ Setup & Run
-
-Follow these steps to run the project locally:
-
-1. Clone the repository.
-2. Install backend dependencies:
-
- ```bash
- npm install
- ```
-   
-Install frontend dependencies:
-
-```bash
-cd frontend && npm install
+```
+backend/
+├── src/
+│   ├── controllers/     # Controladores das rotas
+│   ├── services/        # Lógica de negócio
+│   ├── repositories/    # Acesso ao banco de dados
+│   ├── middleware/      # Autenticação, validação, erros
+│   ├── routes/          # Definição das rotas da API
+│   ├── dtos/           # Validação de dados de entrada
+│   └── utils/          # Utilitários (JWT, time, etc.)
+├── prisma/
+│   └── schema.prisma   # Schema do banco de dados
+└── package.json
 ```
 
-Run the backend:
+### Frontend (Next.js 15 + React 19 + TypeScript)
 
-```bash
-npm run start
+```
+frontend/
+├── app/
+│   ├── auth/           # Páginas de autenticação
+│   ├── dashboard/      # Dashboard principal
+│   ├── components/     # Componentes reutilizáveis
+│   └── store/         # Gerenciamento de estado (Zustand)
+├── lib/
+└── package.json
 ```
 
-Run the frontend:
+---
 
+## 🗄️ Banco de Dados
+
+**PostgreSQL** com **Prisma ORM**
+
+### Principais Entidades:
+- **User** - Usuários do sistema
+- **Calendar** - Calendários dos usuários
+- **Event** - Eventos/compromissos
+- **EventRecurrence** - Recorrência de eventos
+- **EventAttendee** - Participantes dos eventos
+- **WorkingHours** - Horários de trabalho
+- **Schedule** - Agendas geradas
+
+---
+
+## 🚀 Como Executar
+
+### Pré-requisitos
+- Node.js 18+
+- PostgreSQL
+- npm ou yarn
+
+### Backend
 ```bash
+cd backend
+npm install
+npm run db:generate
+npm run db:migrate
 npm run dev
 ```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Variáveis de Ambiente
+
+**Backend (.env)**
+```env
+DATABASE_URL="postgresql://user:password@localhost:5432/scheduleapp"
+JWT_SECRET="your-secret-key"
+PORT=3001
+```
+
+**Frontend (.env.local)**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+```
+
+---
+
+## 📚 Tecnologias Utilizadas
+
+### Backend
+- **Express.js** - Framework web
+- **Prisma** - ORM para PostgreSQL
+- **JWT** - Autenticação
+- **bcryptjs** - Hash de senhas
+- **Zod** - Validação de schemas
+- **date-fns** - Manipulação de datas
+
+### Frontend
+- **Next.js 15** - Framework React
+- **React 19** - Biblioteca UI
+- **Tailwind CSS** - Estilização
+- **Radix UI** - Componentes acessíveis
+- **Zustand** - Gerenciamento de estado
+- **React Hook Form** - Formulários
+- **date-fns** - Manipulação de datas
+
+---
+
+## 🔧 Scripts Disponíveis
+
+### Backend
+```bash
+npm run dev          # Desenvolvimento com hot reload
+npm run build        # Build para produção
+npm run start        # Executar em produção
+npm run db:generate  # Gerar cliente Prisma
+npm run db:migrate   # Executar migrações
+npm run db:studio    # Abrir Prisma Studio
+npm run test         # Executar testes
+```
+
+### Frontend
+```bash
+npm run dev          # Desenvolvimento
+npm run build        # Build para produção
+npm run start        # Executar em produção
+npm run lint         # Verificar código
+```
+
+---
+
+## 📡 API Endpoints
+
+### Autenticação
+- `POST /api/auth/register` - Registrar usuário
+- `POST /api/auth/login` - Login
+
+### Usuários
+- `GET /api/users` - Listar usuários
+- `PUT /api/users/:id` - Atualizar usuário
+
+### Calendários
+- `GET /api/calendars` - Listar calendários
+- `POST /api/calendars` - Criar calendário
+- `PUT /api/calendars/:id` - Atualizar calendário
+- `DELETE /api/calendars/:id` - Deletar calendário
+
+### Eventos
+- `GET /api/events` - Listar eventos
+- `POST /api/events` - Criar evento
+- `PUT /api/events/:id` - Atualizar evento
+- `DELETE /api/events/:id` - Deletar evento
+
+### Participantes
+- `GET /api/events/:id/attendees` - Listar participantes
+- `POST /api/events/:id/attendees` - Adicionar participante
+- `PUT /api/events/:id/attendees/:attendeeId` - Atualizar participante
+- `DELETE /api/events/:id/attendees/:attendeeId` - Remover participante
+
+### Horários de Trabalho
+- `GET /api/working-hours` - Obter horários
+- `PUT /api/working-hours` - Atualizar horários
+
+---
+
+## 🎨 Interface do Usuário
+
+- **Dashboard** - Visualização principal do calendário
+- **Sidebar** - Navegação e lista de eventos
+- **Diálogos** - Criação e edição de eventos/calendários
+- **Responsivo** - Adaptável para desktop e mobile
+
+---
+
+## 🔒 Segurança
+
+- Autenticação JWT
+- Hash de senhas com bcrypt
+- Validação de entrada com Zod
+- Rate limiting
+- Headers de segurança com Helmet
+- CORS configurado
+
+---
+
+## 📝 Licença
+
+ISC
 
