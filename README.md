@@ -1,5 +1,7 @@
 # 📅 Sistema de Agendamento - ScheduleApp
 
+![Screenshot_1](https://github.com/user-attachments/assets/d3b9325c-c109-46bd-888c-c38f60ba44fe)
+
 ## 🗂️ Visão Geral
 
 Sistema completo de agendamento desenvolvido com **TypeScript** no backend e **Next.js 15** no frontend. Permite gerenciar calendários, eventos, participantes e horários de trabalho.
