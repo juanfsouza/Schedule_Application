@@ -203,7 +203,3 @@ npm run lint         # Verificar código
 
 ---
 
-## 📝 Licença
-
-ISC
-
